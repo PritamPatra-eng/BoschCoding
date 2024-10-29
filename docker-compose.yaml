@@ -1,0 +1,44 @@
+version: '3'
+services:
+  postgres-orchestrator:
+    image: postgres:15
+    container_name: postgres-container-orchestrator
+    environment:
+      POSTGRES_DB: inventory_management
+      POSTGRES_USER: bosch
+      POSTGRES_PASSWORD: very_secret
+    volumes:
+      - ./postgres_orchestrator_data:/var/lib/postgresql/data
+      - ./helpers/init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq-container
+    environment:
+      RABBITMQ_DEFAULT_USER: bosch
+      RABBITMQ_DEFAULT_PASS: very_secret
+    volumes:
+      - ./rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq_logs:/var/log/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  event_producer:
+    image: openjdk:17
+    volumes:
+      - ./producer:/app working_dir:/app
+    command: java -jar event_publisher.jar
+    depends_on:
+      - rabbitmq
+
+  event_consumer:
+    image: openjdk:17
+    volumes:
+      - ./consumer:/app working_dir:/app
+    command: java -jar event_consumer.jar
+    depends_on:
+      - rabbitmq
+      - postgres
