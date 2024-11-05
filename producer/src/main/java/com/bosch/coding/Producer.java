@@ -1,6 +1,9 @@
 package com.bosch.coding;
 
 import java.util.Random;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.Channel;
 
 public class Producer {
 
@@ -58,21 +61,35 @@ public class Producer {
         Producer producer = new Producer();
         WarehouseRequestEventFactory factory = producer.new WarehouseRequestEventFactory();
         //when all is done wait 100ms before next event
-        while (true) {
-            WarehouseRequestEvent event = factory.createEvent();
-            // Your code goes here
-            //  System.out.println(event.toString());
-            // Create a connection to the RabbitMQ server
-            // Write event to a Rabbitmq topic
 
-            /**
-             * This is a blocking call that slows the event generation to 1 event per 100ms
-             */
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+        ConnectionFactory rabbitMqFactory = new ConnectionFactory();
+        rabbitMqFactory.setHost("localhost");
+
+        try(Connection connection = rabbitMqFactory.newConnection();
+            Channel channel = connection.createChannel()){
+            channel.queueDeclare("warehouse_request", false, false, false, null);
+
+            while (true) {
+                WarehouseRequestEvent event = factory.createEvent();
+                // Your code goes here
+                //  System.out.println(event.toString());
+                // Create a connection to the RabbitMQ server
+                // Write event to a Rabbitmq topic
+
+                String message = event.toString();
+                channel.basicPublish("", "warehouse_requests", null, message.getBytes());
+                System.out.println("Event Sent: " +message);
+                        /**
+                         * This is a blocking call that slows the event generation to 1 event per 100ms
+                         */
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
+        }catch (Exception e){
+            e.printStackTrace();
         }
     }
 }
